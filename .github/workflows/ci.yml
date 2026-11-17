@@ -40,22 +40,22 @@ jobs:
       - name: Build
         id: build
         run: |
-          dotnet build BrimDeck.sln -c Release
+          dotnet build BetterIsland.sln -c Release
           if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
       - name: Core tests
         run: |
-          dotnet run --project tests/BrimDeck.Tests -c Release --no-build
+          dotnet run --project tests/BetterIsland.Tests -c Release --no-build
           if ($LASTEXITCODE -ne 0) { throw 'Core tests failed.' }
       - name: Media tests
         run: |
-          dotnet run --project tests/BrimDeck.MediaTests -c Release --no-build
+          dotnet run --project tests/BetterIsland.MediaTests -c Release --no-build
           if ($LASTEXITCODE -ne 0) { throw 'Media tests failed.' }
       # The Windows-native checks that hold on a hosted runner: WPF layout and drawing, dispatcher behaviour and the sensor guard.
       # "--hosted" leaves out what reads the machine itself (graphics adapters, the display, temperatures, power and battery),
       # which a virtual machine without a GPU or battery cannot answer for the code; a developer runs all of it without the flag.
       - name: Windows tests (hosted subset)
         run: |
-          dotnet run --project tests/BrimDeck.WindowsTests -c Release --no-build -- --hosted
+          dotnet run --project tests/BetterIsland.WindowsTests -c Release --no-build -- --hosted
           if ($LASTEXITCODE -ne 0) { throw 'Windows tests failed.' }
       # Started by hand from the Actions tab: every Windows check, to see which of the left-out ones this runner can answer.
       # It never fails the run; the log is the result.
@@ -64,5 +64,5 @@ jobs:
         continue-on-error: true
         timeout-minutes: 8
         run: |
-          dotnet run --project tests/BrimDeck.WindowsTests -c Release --no-build
+          dotnet run --project tests/BetterIsland.WindowsTests -c Release --no-build
           if ($LASTEXITCODE -ne 0) { throw 'Windows tests failed.' }

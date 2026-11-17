@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
@@ -8,13 +8,13 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using BrimDeck;
-using BrimDeck.Core;
-using BrimDeck.Native;
+using BetterIsland;
+using BetterIsland.Core;
+using BetterIsland.Native;
 
 namespace ReadmeMedia;
 
-// Renders the README images with BrimDeck's own panel code and invented data. Nothing is read from this computer:
+// Renders the README images with BetterIsland's own panel code and invented data. Nothing is read from this computer:
 // every snapshot, song and cover below is made up, the usage service points at an empty folder, the network is
 // replaced by a handler that always fails, and media detection is never started. The panel window stays transparent
 // and off screen; each image is taken from its visual tree with RenderTargetBitmap.
@@ -36,7 +36,7 @@ internal static class Program
         int exit = 0;
         var app = new App();
         app.InitializeComponent();
-        // App raises Startup as soon as the dispatcher runs, even without Application.Run. BrimDeck's OnStartup would
+        // App raises Startup as soon as the dispatcher runs, even without Application.Run. BetterIsland's OnStartup would
         // start a real instance with real data, or ask the running one to open its settings. OnStartup calls the base
         // method first, so an exception from the Startup event ends it before anything else happens.
         app.Startup += (_, _) => throw new StartupSkipped();
@@ -97,7 +97,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
     public async Task RunAsync()
     {
         Loc.Use(language); _english = Loc.IsEnglish;
-        var folder = Path.Combine(Path.GetTempPath(), "BrimDeck.ReadmeMedia." + Guid.NewGuid().ToString("N"));
+        var folder = Path.Combine(Path.GetTempPath(), "BetterIsland.ReadmeMedia." + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         var offline = new HttpClient(new Offline());
         _settings = BuildSettings();
@@ -109,15 +109,15 @@ internal sealed class Renderer(App app, string output, string language, string[]
         // The panel subscribes to the lyrics as it is made; this one finds none offline and reads no Apple Music cache.
         Program.SetProperty(app, "Lyrics", new LyricsService(offline, () => [], Path.Combine(folder, "apple-music-lyrics.json")));
         // The toolbar reads the update notice on every render.
-        var backend = Type.GetType("BrimDeck.Updates.GitHubUpdates, BrimDeck")!.GetMethod("Create", [typeof(string)])!.Invoke(null, [folder]);
+        var backend = Type.GetType("BetterIsland.Updates.GitHubUpdates, BetterIsland")!.GetMethod("Create", [typeof(string)])!.Invoke(null, [folder]);
         Program.SetProperty(app, "Updates", new AppUpdates((IAppUpdateBackend)backend!, folder));
         // The clipboard and file transfer: the service is made on an empty folder of this run and never told to record.
-        _shelf = Activator.CreateInstance(Type.GetType("BrimDeck.ShelfService, BrimDeck")!, Program.Any, null, [folder, Dispatcher.CurrentDispatcher], null)!;
+        _shelf = Activator.CreateInstance(Type.GetType("BetterIsland.ShelfService, BetterIsland")!, Program.Any, null, [folder, Dispatcher.CurrentDispatcher], null)!;
         Program.SetProperty(app, "Shelf", _shelf);
         FillShelf(folder);
         // The devices: the object the panels read, made without its constructor, so none of its sources exists. Disposed, it
         // ignores every demand; its roster holds the invented readings.
-        var devices = System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(Type.GetType("BrimDeck.Native.DeviceBatteries, BrimDeck")!);
+        var devices = System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(Type.GetType("BetterIsland.Native.DeviceBatteries, BetterIsland")!);
         var roster = new DeviceRoster();
         foreach (var group in InventedDevices().GroupBy(device => device.Source)) roster.Set(group.Key, [.. group]);
         Program.SetField(devices, "_roster", roster);
@@ -356,7 +356,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
         data.Clips.AddRange(
         [
             Clip(ClipKind.Text, Loc.T("周三上午十点评审 1.3.0 的更新说明", "Review the 1.3.0 release notes on Wednesday at 10"), 1, "notepad", work.Id),
-            Clip(ClipKind.Link, "https://github.com/MoFeng2223/BrimDeck/releases", 4, "chrome"),
+            Clip(ClipKind.Link, "https://github.com/MoFeng2223/BetterIsland/releases", 4, "chrome"),
             Clip(ClipKind.Code, "var total = entries.Sum(entry => entry.Tokens);\nvar average = total / 7;\nreturn average;", 6, "Code", code.Id),
             picture,
             Clip(ClipKind.Color, "#9CB9FF", 15, "Code"),
@@ -375,7 +375,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
         [
             (Loc.T("发布说明 1.3.0.docx", "Release notes 1.3.0.docx"), 86 * KB, send.Id),
             (Loc.T("界面截图.png", "Screenshot.png"), (long)(1.4 * MB), send.Id),
-            ("BrimDeck-1.3.0-Portable-x64.zip", 58 * MB, setup.Id),
+            ("BetterIsland-1.3.0-Portable-x64.zip", 58 * MB, setup.Id),
             (Loc.T("季度数据.xlsx", "Quarterly figures.xlsx"), 312 * KB, null),
             (Loc.T("演示录屏.mp4", "Demo recording.mp4"), 24 * MB, null),
             (Loc.T("会议纪要.txt", "Meeting notes.txt"), 4 * KB, null)
@@ -623,7 +623,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
     private async Task ClockStyles()
     {
         const double scale = 2;
-        var face = Type.GetType("BrimDeck.ClockFace, BrimDeck")!;
+        var face = Type.GetType("BetterIsland.ClockFace, BetterIsland")!;
         var time = new DateTime(2026, 9, 27, 15, 25, 0);
         (ClockStyle Style, ClockColor Color, bool Alone)[] samples =
         [
@@ -669,7 +669,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
     private async Task Themes()
     {
         const double scale = 2;
-        var folder = Path.Combine(Path.GetTempPath(), "BrimDeck.ReadmeThemes." + Guid.NewGuid().ToString("N"));
+        var folder = Path.Combine(Path.GetTempPath(), "BetterIsland.ReadmeThemes." + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         File.WriteAllText(Path.Combine(folder, "warm-paper.json"), CustomTheme);
         string[] ids = [PanelThemes.Dark, PanelThemes.Light, PanelThemes.IslandHoliday2, PanelThemes.PixelBlocks, PanelThemes.Demo, "warm-paper"];
@@ -677,7 +677,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
         // set to begin an hour before now and to last twelve hours.
         var dawn = TimeSpan.FromHours((DateTime.Now.Hour + 23) % 24);
         _settings.ThemeDaylight = PanelThemes.FormatDaylight(dawn, TimeSpan.FromHours((dawn.Hours + 12) % 24));
-        var theme = Type.GetType("BrimDeck.PanelTheme, BrimDeck")!;
+        var theme = Type.GetType("BetterIsland.PanelTheme, BetterIsland")!;
         theme.GetField("_loaded", Program.Any)!.SetValue(null, true);
         theme.GetProperty("UserThemes", Program.Any)!.SetValue(null, PanelThemes.LoadFolder(folder));
         var use = theme.GetMethod("Use", Program.Any)!;
@@ -824,8 +824,8 @@ internal sealed class Renderer(App app, string output, string language, string[]
                 new("VideoEncode", 0), new("Compute", Math.Max(0, .03 + .02 * Jump(tick, 43)))]
         };
         // The icons are the only thing taken from this computer: each app's icon is read from its executable where it is
-        // installed, as BrimDeck does. An app that is not installed shows its initial instead.
-        var prepare = Type.GetType("BrimDeck.ProcessIcons, BrimDeck")!.GetMethod("Prepare", Program.Any)!;
+        // installed, as BetterIsland does. An app that is not installed shows its initial instead.
+        var prepare = Type.GetType("BetterIsland.ProcessIcons, BetterIsland")!.GetMethod("Prepare", Program.Any)!;
         // Each app's processor use over five seconds, repeated. The figures change every second, and once in the clip (at tick 2)
         // Chrome overtakes Visual Studio Code, so the list reorders once. Tick 0 is the still image.
         ProcessSample App(int pid, string name, string exe, double[] cpuPercents, double memoryMb, int members = 1, params string[] places)
@@ -1021,7 +1021,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
         _settings.Animations = false;
         SelectPage(DeckPage.Clipboard);
         _deck.SetExpanded(true, true);
-        var result = Type.GetType("BrimDeck.PasteResult, BrimDeck")!;
+        var result = Type.GetType("BetterIsland.PasteResult, BetterIsland")!;
         foreach (var (width, height) in new (double, double)[] { (440, 140), (620, 220) })
         {
             _settings.ClipboardWidth = width; _settings.ClipboardHeight = height; Refresh();
@@ -1182,7 +1182,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
         _settings.ShelfArrangement = ShelfArrangement.Split;
         // The same under other panel themes: 像素方块 (square corners, stronger lines), 海岛假日 by day and by night, 海岛假日 2
         // by day, and 浅色. An entry under the pointer in each column, several chosen, and the empty page.
-        var theme = Type.GetType("BrimDeck.PanelTheme, BrimDeck")!;
+        var theme = Type.GetType("BetterIsland.PanelTheme, BetterIsland")!;
         // Marked as read, so that no theme folder of this computer is.
         theme.GetProperty("Loaded", Program.Any)!.SetValue(null, true);
         var use = theme.GetMethod("Use", Program.Any)!;
@@ -1301,7 +1301,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
 
         // The pointer on an entry changes that entry alone: the page is drawn before, with the pointer on each entry in view in
         // turn, and after it has left; what differs outside the entry, and what is left changed once it has gone, is reported.
-        string[] names = ["微信.lnk", "网易云音乐.lnk", "Microsoft Edge.lnk", "BrimDeck-硬盘温度监控.zip", "Visual Studio Code.lnk", "QQ.lnk", "QQ音乐.lnk", "Google Chrome.lnk"];
+        string[] names = ["微信.lnk", "网易云音乐.lnk", "Microsoft Edge.lnk", "BetterIsland-硬盘温度监控.zip", "Visual Studio Code.lnk", "QQ.lnk", "QQ音乐.lnk", "Google Chrome.lnk"];
         var named = names.Select((name, i) => { string path = Path.Combine(folder, name); File.WriteAllBytes(path, new byte[64]); return new TransferFile { Path = path, Added = _now.AddMinutes(-i) }; }).ToList();
         files.InsertRange(0, named);
         byte[] Pixels(out int width)
@@ -1396,13 +1396,13 @@ internal sealed class Renderer(App app, string output, string language, string[]
     // is made on this run's empty folder and never applied, and the names it would read from WeType are set here.
     private async Task ClipboardSyncScene(string folder)
     {
-        var service = Activator.CreateInstance(Type.GetType("BrimDeck.ClipboardSyncService, BrimDeck")!, Program.Any, null, [app, folder], null)!;
+        var service = Activator.CreateInstance(Type.GetType("BetterIsland.ClipboardSyncService, BetterIsland")!, Program.Any, null, [app, folder], null)!;
         Program.SetProperty(app, "ClipboardSync", service);
         // A worker listed as running keeps the page from asking WeType for the names.
         var workers = (System.Collections.IDictionary)Program.Field(service, "_workers")!;
         workers[false] = new CancellationTokenSource();
         var accounts = Program.GetProperty(service, "Accounts")!;
-        Program.SetProperty(accounts, "DeviceName", _english ? "BrimDeck STUDIO-PC" : "BrimDeck 书房电脑");
+        Program.SetProperty(accounts, "DeviceName", _english ? "BetterIsland STUDIO-PC" : "BetterIsland 书房电脑");
         // As SettingsPage, without closing the window: closing saves the settings, which this run has none to save.
         async Task Page(string name, double height)
         {
@@ -1426,14 +1426,14 @@ internal sealed class Renderer(App app, string output, string language, string[]
         await Page("sync-page-empty", 560);
 
         var statuses = (System.Collections.IDictionary)Program.Field(service, "_status")!;
-        var levels = Type.GetType("BrimDeck.SyncLevel, BrimDeck")!;
+        var levels = Type.GetType("BetterIsland.SyncLevel, BetterIsland")!;
         object Status(string text, string level) => Activator.CreateInstance(statuses.GetType().GetGenericArguments()[1], text, Enum.Parse(levels, level))!;
-        Program.SetProperty(accounts, "Lan", new BrimDeck.Core.ClipboardSync.LanClipboardPeer("192.168.1.20", 50000, new byte[32], new byte[32], null) { DeviceName = "BrimDeck LAPTOP-7QK2M4" });
-        var wetype = (BrimDeck.Core.ClipboardSync.WeTypeIdentity)Program.GetProperty(accounts, "WeType")!;
+        Program.SetProperty(accounts, "Lan", new BetterIsland.Core.ClipboardSync.LanClipboardPeer("192.168.1.20", 50000, new byte[32], new byte[32], null) { DeviceName = "BetterIsland LAPTOP-7QK2M4" });
+        var wetype = (BetterIsland.Core.ClipboardSync.WeTypeIdentity)Program.GetProperty(accounts, "WeType")!;
         wetype.Paired = true; wetype.DisplayName = _english ? "Study desktop" : "书房的台式机";
         wetype.PeerNames = ["iPhone 15 Pro", "DESKTOP-OFFICE-WORKSTATION-2026", _english ? "Living room tablet" : "客厅平板"];
-        Program.SetProperty(accounts, "Doubao", new BrimDeck.Core.ClipboardSync.DoubaoIdentity { DeviceId = "1", Cookies = { ["sessionid"] = "x" } });
-        Program.SetProperty(service, "DoubaoCapability", new BrimDeck.Core.ClipboardSync.DoubaoDeviceState(2, true));
+        Program.SetProperty(accounts, "Doubao", new BetterIsland.Core.ClipboardSync.DoubaoIdentity { DeviceId = "1", Cookies = { ["sessionid"] = "x" } });
+        Program.SetProperty(service, "DoubaoCapability", new BetterIsland.Core.ClipboardSync.DoubaoDeviceState(2, true));
         _settings.LanClipboardSync = _settings.WeTypeClipboardSync = _settings.DoubaoClipboardSync = true;
         Program.SetProperty(service, "LanStatus", _english ? "Connected" : "已连接");
         Program.SetProperty(service, "LanLevel", Enum.Parse(levels, "Active"));
@@ -1441,7 +1441,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
         statuses[true] = Status(_english ? "Sync is turned off for this device" : "此设备的互传开关未开启", "Attention");
         await Page("sync-page-connected", 700);
         _settings.WeTypeClipboardSync = false;
-        Program.SetProperty(service, "DoubaoCapability", new BrimDeck.Core.ClipboardSync.DoubaoDeviceState(1, true));
+        Program.SetProperty(service, "DoubaoCapability", new BetterIsland.Core.ClipboardSync.DoubaoDeviceState(1, true));
         statuses[true] = Status(_english ? "Connection lost. Retrying…" : "连接中断，正在重试…", "Attention");
         Program.SetProperty(service, "LanStatus", _english ? "Waiting for the other PC…" : "正在等待另一台电脑…");
         Program.SetProperty(service, "LanLevel", Enum.Parse(levels, "Idle"));
@@ -1509,8 +1509,8 @@ internal sealed class Renderer(App app, string output, string language, string[]
 
         var advanced = Program.Call(window, "DoubaoAdvanced", [])!;
         var listed = Part<System.Windows.Controls.StackPanel>(advanced, "List"); listed.Visibility = Visibility.Visible;
-        Program.Call(window, "ShowDoubaoDevices", [typeof(System.Windows.Controls.StackPanel), typeof(IReadOnlyList<BrimDeck.Core.ClipboardSync.DoubaoDevice>)], listed,
-            (IReadOnlyList<BrimDeck.Core.ClipboardSync.DoubaoDevice>)[new("1", "DESKTOP-BFFEHMI", false), new("2", "BrimDeck DESKTOP-G72GT45-OFFICE-WORKSTATION-2026-LONG-NAME", false),
+        Program.Call(window, "ShowDoubaoDevices", [typeof(System.Windows.Controls.StackPanel), typeof(IReadOnlyList<BetterIsland.Core.ClipboardSync.DoubaoDevice>)], listed,
+            (IReadOnlyList<BetterIsland.Core.ClipboardSync.DoubaoDevice>)[new("1", "DESKTOP-BFFEHMI", false), new("2", "BetterIsland DESKTOP-G72GT45-OFFICE-WORKSTATION-2026-LONG-NAME", false),
                 new("3", "Oppo Find X9 Pro", false), new("4", "MacBook Air (15-inch, M5)", false)]);
         await Dialog("sync-doubao-advanced", _english ? "Doubao IME" : "豆包输入法", Part<FrameworkElement>(advanced, "Root"));
 
@@ -1528,7 +1528,7 @@ internal sealed class Renderer(App app, string output, string language, string[]
         var note = Part<System.Windows.Controls.TextBlock>(lan, "OwnNote"); note.Text = _english ? "This PC is not on a local network" : "本机没有连接到局域网"; note.Visibility = Visibility.Visible;
         Say(Part<object>(lan, "Status"), _english ? "Several PCs were found. Choose the one to pair:" : "找到多台电脑，选择要配对的一台：");
         var devices = Part<System.Windows.Controls.StackPanel>(lan, "Devices"); devices.Visibility = Visibility.Visible;
-        foreach (string device in new[] { "BrimDeck LAPTOP-7QK2M4 · 192.168.1.20", "BrimDeck DESKTOP-OFFICE-WORKSTATION-2026 · 192.168.1.131" })
+        foreach (string device in new[] { "BetterIsland LAPTOP-7QK2M4 · 192.168.1.20", "BetterIsland DESKTOP-OFFICE-WORKSTATION-2026 · 192.168.1.131" })
             devices.Children.Add(new System.Windows.Controls.Button { Content = device, Style = (Style)window.FindResource("SettingsOutlineButton"),
                 HorizontalContentAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 6, 0, 0) });
         await Dialog("sync-lan-choose", lanTitle, Part<FrameworkElement>(lan, "Root"));
@@ -1679,8 +1679,8 @@ internal sealed class Renderer(App app, string output, string language, string[]
     // The sizes are written out as well.
     private async Task DragHints()
     {
-        var look = Type.GetType("BrimDeck.PanelTheme, BrimDeck")!.GetProperty("Main", Program.Any)!.GetValue(null);
-        var type = Type.GetType("BrimDeck.DragHint, BrimDeck")!;
+        var look = Type.GetType("BetterIsland.PanelTheme, BetterIsland")!.GetProperty("Main", Program.Any)!.GetValue(null);
+        var type = Type.GetType("BetterIsland.DragHint, BetterIsland")!;
         const double scale = 3, gap = 16;
         var shots = new List<(BitmapSource Picture, Size Window)>();
         foreach (var word in new[] { Loc.T("复制", "Copy"), Loc.T("移动", "Move"), Loc.T("链接", "Link") })
@@ -1732,6 +1732,6 @@ internal sealed class Renderer(App app, string output, string language, string[]
         for (int i = 0; i < 400 && (int)Pending.GetValue(null)! + (int)Reading.GetValue(null)! > 0; i++) await Task.Delay(15);
         for (int i = 0; i < 3; i++) await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
     }
-    private static readonly PropertyInfo Pending = Type.GetType("BrimDeck.ShelfFiles, BrimDeck")!.GetProperty("Pending", Program.Any)!,
-        Reading = Type.GetType("BrimDeck.ShelfService, BrimDeck")!.GetProperty("Reading", Program.Any)!;
+    private static readonly PropertyInfo Pending = Type.GetType("BetterIsland.ShelfFiles, BetterIsland")!.GetProperty("Pending", Program.Any)!,
+        Reading = Type.GetType("BetterIsland.ShelfService, BetterIsland")!.GetProperty("Reading", Program.Any)!;
 }

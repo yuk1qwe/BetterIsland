@@ -2,7 +2,7 @@
 
 The device batteries page shows the battery of the connected wireless mice, keyboards, headsets, controllers, pens and phones; the notch and capsule can show them too. The settings are under Settings › Display and devices.
 
-BrimDeck only reads batteries: it never pairs, disconnects or changes any device or Windows setting, needs no administrator rights and installs no driver. Devices are read only while the device batteries page is open, the notch or capsule shows device batteries, or Settings › Display and devices is open.
+BetterIsland only reads batteries: it never pairs, disconnects or changes any device or Windows setting, needs no administrator rights and installs no driver. Devices are read only while the device batteries page is open, the notch or capsule shows device batteries, or Settings › Display and devices is open.
 
 ## Supported connections
 
@@ -26,7 +26,7 @@ HID devices that carry the standard battery report are shown too.
 | --- | --- |
 | Logitech, MCHOSE, ATK, Endgame Gear, VAXEE, Rapoo, Keychron, Finalmouse | Whole brand |
 | Razer, ASUS ROG, SteelSeries, Corsair, HyperX | Known wireless models |
-| VXE, VGN, Pulsar, LAMZU, G-Wolves, WLmouse, Ninjutso, LINGBAO, NZXT, HECATE, Dareu, Inphic, AJAZZ, Attack Shark, DELUX, Glorious, Darmoshark, EWEADN, AULA, Thunderobot ML903, Metaphyuni Metapanda P1, Scyrox, Cougar, Redragon, Hitscan, iRocks, Vancer, Incott, Ryunix, JD Jingzao JZM5, RIDLAG, Motospeed X6 | Known models |
+| VXE, VGN, Pulsar, LAMZU, G-Wolves, WLmouse, Ninjutso, LINGBAO, NZXT, HECATE, Dareu, Inphic, AJAZZ, Attack Shark, DELUX, Glorious, Darmoshark, EWEADN, AULA, Thunderobot ML903, Metaphyuni Metapanda P1, Scyrox, Cougar, Redragon, Hitscan, iRocks, Vancer, Incott, Ryunix, JD Jingzao JZM5, RIDLAG, Motospeed X6, ARDOR GAMING (Essence ARDW-ES3395-BW) | Known models |
 
 **Keyboards**
 

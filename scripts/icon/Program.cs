@@ -1,9 +1,9 @@
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-// BrimDeck application icon: a near-black rounded square filling the canvas, a high-contrast "B" (thick stems, thin bars,
+// BetterIsland application icon: a near-black rounded square filling the canvas, a high-contrast "B" (thick stems, thin bars,
 // bowls that thin toward their joins), a thin outline that follows the letter's lower half and fades in from the waist,
 // and a counter-clockwise quota ring docked into the upper bowl's shoulder (the letter is cut around it).
 // Composition on a 256-unit canvas: square 0–256 with corner radius 42; the mark is scaled 1.12 about (129, 128) so the letter
@@ -22,7 +22,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        string icoPath = args.Length > 0 ? args[0] : "BrimDeck.ico";
+        string icoPath = args.Length > 0 ? args[0] : "BetterIsland.ico";
         string previewPath = args.Length > 1 ? args[1] : "icon-preview.png";
         var frames = Sizes.Select(size => (Size: size, Png: Encode(Render(size)))).ToList();
         WriteIco(icoPath, frames);

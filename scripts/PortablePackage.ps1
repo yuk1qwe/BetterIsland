@@ -1,15 +1,15 @@
-# Builds the portable zip from a dotnet publish folder. Dot-source this file, then call New-PortablePackage.
-# The zip holds one folder with the published files and BrimDeck.portable, which lists every file of the package
+﻿# Builds the portable zip from a dotnet publish folder. Dot-source this file, then call New-PortablePackage.
+# The zip holds one folder with the published files and BetterIsland.portable, which lists every file of the package
 # (relative paths, one per line). The app treats a folder with that list as a portable copy and replaces only the listed
-# files when it updates itself (PortableUpdate in BrimDeck.Core). The installer is built from the same folder without it.
+# files when it updates itself (PortableUpdate in BetterIsland.Core). The installer is built from the same folder without it.
 function New-PortablePackage {
     param(
         [Parameter(Mandatory)][string]$SourceDir,
         [Parameter(Mandatory)][string]$Destination,
-        [string]$Folder = 'BrimDeck'
+        [string]$Folder = 'BetterIsland'
     )
     Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
-    $listName = 'BrimDeck.portable'
+    $listName = 'BetterIsland.portable'
     $root = [IO.Path]::GetFullPath($SourceDir).TrimEnd('\') + '\'
     $files = @(Get-ChildItem -LiteralPath $root -Recurse -File | ForEach-Object { $_.FullName.Substring($root.Length) } |
         Where-Object { $_ -ne $listName } | Sort-Object)

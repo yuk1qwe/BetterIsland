@@ -57,7 +57,7 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Test
         run: |
-          dotnet run --project tests/BrimDeck.Tests -c Release
+          dotnet run --project tests/BetterIsland.Tests -c Release
           if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
       - name: Package installer, portable zip and update feed
         run: ./scripts/Publish-Release.ps1 -Version $env:RELEASE_VERSION
@@ -82,7 +82,7 @@ jobs:
           $files = Get-ChildItem artifacts/releases -File | ForEach-Object FullName
           # @(...) keeps a single flag an array; a plain string would be splatted one character at a time.
           $kind = @(if ($prerelease) { '--prerelease' })
-          gh release create $env:RELEASE_TAG @files --target $env:RELEASE_COMMIT --title "BrimDeck $env:RELEASE_VERSION" --notes-file "releases/$env:RELEASE_VERSION.md" --draft @kind
+          gh release create $env:RELEASE_TAG @files --target $env:RELEASE_COMMIT --title "BetterIsland $env:RELEASE_VERSION" --notes-file "releases/$env:RELEASE_VERSION.md" --draft @kind
           if ($LASTEXITCODE -ne 0) { throw 'Release upload failed.' }
           $latest = @(if (!$prerelease) { '--latest' })
           gh release edit $env:RELEASE_TAG --draft=false @latest
@@ -97,7 +97,7 @@ jobs:
         run: |
           gh release view beta-channel *> $null
           if ($LASTEXITCODE -ne 0) {
-              gh release create beta-channel --target $env:RELEASE_COMMIT --prerelease --latest=false --title 'Beta channel' --notes 'Points BrimDeck copies that receive beta updates to the newest beta. Download betas from their own releases.'
+              gh release create beta-channel --target $env:RELEASE_COMMIT --prerelease --latest=false --title 'Beta channel' --notes 'Points BetterIsland copies that receive beta updates to the newest beta. Download betas from their own releases.'
               if ($LASTEXITCODE -ne 0) { throw 'The beta channel could not be created.' }
           }
           gh release upload beta-channel artifacts/releases/update.json --clobber
