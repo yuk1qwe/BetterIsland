@@ -164,10 +164,10 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
         if (_scroll is not null) _scroll.Content = null;
         if (_status.Parent is Panel oldStatus) oldStatus.Children.Remove(_status);
         var outer = new Grid { Background = UI.Brush(Surface) };
-        outer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) }); outer.ColumnDefinitions.Add(new ColumnDefinition());
+        outer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(245) }); outer.ColumnDefinitions.Add(new ColumnDefinition());
         var sidebar = new Grid { Background = UI.Brush(Sidebar) };
         sidebar.RowDefinitions.Add(new RowDefinition { Height = new GridLength(100) }); sidebar.RowDefinitions.Add(new RowDefinition());
-        sidebar.Children.Add(Brand(24, new Thickness(24, 0, 22, 0)));
+        sidebar.Children.Add(Brand(24, new Thickness(20, 0, 16, 0)));
         // The list of pages scrolls once it is taller than the window, so the last pages (About) stay reachable in a short window.
         // Like the page, it always keeps the scroll bar's 16 DIP column, here in place of its right margin, so the buttons and the
         // selected one's background keep their width when the bar appears. The scroll area clips at its edges, so the list keeps a

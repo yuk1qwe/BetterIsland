@@ -526,8 +526,9 @@ public partial class MainWindow
             }
             MusicContent.Children.Add(empty); _handover.Release(empty, motion); return;
         }
+        if (track is null) return;
         var body = new Grid();
-        bool synchronized = playerLyrics || _lyrics.CanSynchronize(track);
+        bool synchronized = playerLyrics || _lyrics.CanSynchronize(track) || (_lyrics.Lines.Count > 0 && track.HasTimeline);
         if (splitLyrics || bare) MusicColumns(body, layout, track, lyricColumn, hasLyrics, synchronized, playerLyrics, message, shown && songChanging, lyricsArrive);
         else
         {

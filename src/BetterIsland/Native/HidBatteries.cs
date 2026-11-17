@@ -628,9 +628,10 @@ internal sealed class HidBatteries(Dispatcher dispatcher, Action<DeviceSource, I
                 : info.Vendor == ArdorMice.Vendor ? DeviceKind.Mouse
                 : Devices.Named(info.ProductName) ?? group.Select(each => each.Brand?.Family.Kind(Shape(each))).FirstOrDefault(each => each is not null)) ?? DeviceKind.Other;
             string? brandName = info.Vendor == ArdorMice.Vendor ? "ARDOR GAMING Essence" : group.Select(each => each.Brand?.Family.DisplayName(Shape(each))).FirstOrDefault(each => !string.IsNullOrEmpty(each));
-            string name = before?.Name ?? remembered?.Name ?? brandName ?? NameOf(info, hardware);
+            string name = info.Vendor == ArdorMice.Vendor ? "ARDOR GAMING Essence" : (before?.Name ?? remembered?.Name ?? brandName ?? NameOf(info, hardware));
+            if (info.Vendor == ArdorMice.Vendor || name.Contains("2.4G Wireless Receiver", StringComparison.OrdinalIgnoreCase)) name = "ARDOR GAMING Essence";
             if (!found.TryGetValue(DeviceSource.Hid, out var list)) found[DeviceSource.Hid] = list = [];
-            list.Add(new DeviceBattery(key, name, kind, DeviceSource.Hid, null) { Hardware = hardware });
+            list.Add(new DeviceBattery(key, name, kind, DeviceSource.Hid, null) { Hardware = hardware, Asleep = true });
             read.Add(hardware);
         }
         return silent;

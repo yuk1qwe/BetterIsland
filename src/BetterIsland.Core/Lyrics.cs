@@ -29,7 +29,21 @@ public sealed record Lyrics(IReadOnlyList<LyricLine> Lines, bool Synced, string 
     // hold: keeps the line on show through a small step back of the position (LyricHold).
     public LyricWindow Around(MediaTrack track, DateTimeOffset now, int before, int after, LyricHold? hold = null)
     {
-        if (!CanSynchronize(track)) return LyricWindow.Empty;
+        if (Lines.Count == 0) return LyricWindow.Empty;
+        if (!CanSynchronize(track))
+        {
+            // For unsynchronized lyrics, estimate line position based on playback progress
+            if (track.HasTimeline && track.Duration > TimeSpan.Zero)
+            {
+                double fraction = Math.Clamp(track.Position(now).TotalSeconds / track.Duration.TotalSeconds, 0, 1);
+                int estIndex = Math.Clamp((int)(fraction * Lines.Count), 0, Lines.Count - 1);
+                string[] Texts(int from, int count) => [.. Lines.Skip(from).Take(count).Select(line => line.Text)];
+                int first = Math.Max(0, estIndex - before);
+                string lineText = string.IsNullOrWhiteSpace(Lines[estIndex].Text) ? "♪" : Lines[estIndex].Text;
+                return new(Texts(first, estIndex - first), lineText, Texts(estIndex + 1, after));
+            }
+            return LyricWindow.Empty;
+        }
         if (!QqPreview || !track.IsQqMusic) return Around(track.Position(now).TotalSeconds + (track.IsAppleMusic ? AppleLead : 0), before, after, hold);
         // A preview can start at zero or inside the song. QQ's actual current line and
         // full-song karaoke timestamp locate it without guessing from the clip metadata.
@@ -194,6 +208,7 @@ public sealed partial class LyricsService : IDisposable
                 // KuGou's songs ask KuGou first; for the others it is the last provider asked.
                 if (track.IsKugou) lyrics = await FindKugou(track, token);
                 if (lyrics.Lines.Count == 0 && !lyrics.Instrumental) lyrics = await FindLrclib(track, token);
+                if (lyrics.Lines.Count == 0 && !lyrics.Instrumental) lyrics = await FindYandex(track, token);
                 if (lyrics.Lines.Count == 0 && !lyrics.Instrumental) lyrics = await FindNetease(track, token);
                 if (lyrics.Lines.Count == 0 && !lyrics.Instrumental && !track.IsKugou) lyrics = await FindKugou(track, token);
             }
@@ -276,17 +291,26 @@ public sealed partial class LyricsService : IDisposable
     {
         string normTrackTitle = MatchText(track, track.Title);
         string normTitle = MatchText(track, title);
-        bool titleMatches = normTrackTitle == normTitle || normTrackTitle.Contains(normTitle, StringComparison.Ordinal) || normTitle.Contains(normTrackTitle, StringComparison.Ordinal);
+        string cleanTrackTitle = MatchText(track, Regex.Replace(track.Title, @"\s*[\(\[][^()\[\]]*(feat|ft|with|remix|version)[^()\[\]]*[\)\]]", "", RegexOptions.IgnoreCase));
+        string cleanCandTitle = MatchText(track, Regex.Replace(title, @"\s*[\(\[][^()\[\]]*(feat|ft|with|remix|version)[^()\[\]]*[\)\]]", "", RegexOptions.IgnoreCase));
+        bool titleMatches = normTrackTitle == normTitle
+            || cleanTrackTitle == cleanCandTitle
+            || normTrackTitle.Contains(normTitle, StringComparison.Ordinal)
+            || normTitle.Contains(normTrackTitle, StringComparison.Ordinal)
+            || cleanTrackTitle.Contains(cleanCandTitle, StringComparison.Ordinal)
+            || cleanCandTitle.Contains(cleanTrackTitle, StringComparison.Ordinal);
         if (!titleMatches) return false;
 
         string normTrackArtist = MatchText(track, track.Artist);
         string normArtist = MatchText(track, artist);
         var artists = Regex.Split(track.Artist, @"\s*[/、,，&;；]\s*").Where(a => a.Length > 0).Select(a => MatchText(track, a)).ToList();
+        var candArtists = Regex.Split(artist, @"\s*[/、,，&;；]\s*").Where(a => a.Length > 0).Select(a => MatchText(track, a)).ToList();
         bool artistMatches = normTrackArtist == normArtist
-            || artists.Any(a => normArtist.Contains(a, StringComparison.Ordinal) || a.Contains(normArtist, StringComparison.Ordinal));
+            || artists.Any(a => normArtist.Contains(a, StringComparison.Ordinal) || a.Contains(normArtist, StringComparison.Ordinal))
+            || candArtists.Any(c => normTrackArtist.Contains(c, StringComparison.Ordinal) || c.Contains(normTrackArtist, StringComparison.Ordinal));
         if (!artistMatches) return false;
 
-        return track.Duration.TotalSeconds <= 0 || seconds <= 0 || Math.Abs(seconds - track.Duration.TotalSeconds) <= 6;
+        return track.Duration.TotalSeconds <= 0 || seconds <= 0 || Math.Abs(seconds - track.Duration.TotalSeconds) <= 12;
     }
     private async Task<Lyrics> FindNeteaseId(string id, double duration, CancellationToken token)
     {
@@ -301,17 +325,79 @@ public sealed partial class LyricsService : IDisposable
     }
     private async Task<Lyrics> FindLrclib(MediaTrack track, CancellationToken token)
     {
-        string query = $"track_name={Uri.EscapeDataString(track.Title)}&artist_name={Uri.EscapeDataString(track.Artist)}";
-        string duration = track.Duration.TotalSeconds.ToString("0.###", CultureInfo.InvariantCulture);
-        var exact = await Get($"https://lrclib.net/api/get?{query}&album_name={Uri.EscapeDataString(track.Album)}&duration={duration}", token);
+        string primaryArtist = Regex.Split(track.Artist, @"\s*[/、,，&;；]\s*").FirstOrDefault(a => a.Length > 0) ?? track.Artist;
+        string cleanTitle = Regex.Replace(track.Title, @"\s*[\(\[][^()\[\]]*(feat|ft|with)[^()\[\]]*[\)\]]", "", RegexOptions.IgnoreCase).Trim();
+
         Lyrics Parse(JsonElement value) => Lyrics.Parse(Str(value, "syncedLyrics"), Str(value, "plainLyrics"), track.Duration.TotalSeconds, "LRCLIB",
             value.TryGetProperty("instrumental", out var instrumental) && instrumental.ValueKind == JsonValueKind.True);
+
+        // 1. Try fuzzy search with q= (most reliable and resilient on LRCLIB)
+        var searchQ = await Get($"https://lrclib.net/api/search?q={Uri.EscapeDataString(cleanTitle + " " + primaryArtist)}", token);
+        if (searchQ is { ValueKind: JsonValueKind.Array } listQ)
+        {
+            foreach (var item in listQ.EnumerateArray().Where(v => Matches(track, Str(v, "trackName"), Str(v, "artistName"), Num(v, "duration"))).OrderByDescending(v => Str(v, "syncedLyrics").Length > 0))
+            {
+                var lyrics = Parse(item);
+                if (lyrics.Lines.Count > 0 || lyrics.Instrumental) return lyrics;
+            }
+        }
+
+        // 2. Try exact query with primary artist
+        string query = $"track_name={Uri.EscapeDataString(cleanTitle)}&artist_name={Uri.EscapeDataString(primaryArtist)}";
+        string duration = track.Duration.TotalSeconds.ToString("0.###", CultureInfo.InvariantCulture);
+        var exact = await Get($"https://lrclib.net/api/get?{query}&album_name={Uri.EscapeDataString(track.Album)}&duration={duration}", token);
         if (exact is { ValueKind: JsonValueKind.Object } row && Matches(track, Str(row, "trackName"), Str(row, "artistName"), Num(row, "duration")))
-        { var lyrics = Parse(row); if (lyrics.Lines.Count > 0 || lyrics.Instrumental) return lyrics; }
+        {
+            var lyrics = Parse(row);
+            if (lyrics.Lines.Count > 0 || lyrics.Instrumental) return lyrics;
+        }
+
+        // 3. Fallback search with query params
         var search = await Get("https://lrclib.net/api/search?" + query, token);
         if (search is { ValueKind: JsonValueKind.Array } list)
+        {
             foreach (var item in list.EnumerateArray().Where(v => Matches(track, Str(v, "trackName"), Str(v, "artistName"), Num(v, "duration"))).OrderByDescending(v => Str(v, "syncedLyrics").Length > 0))
-            { var lyrics = Parse(item); if (lyrics.Lines.Count > 0 || lyrics.Instrumental) return lyrics; }
+            {
+                var lyrics = Parse(item);
+                if (lyrics.Lines.Count > 0 || lyrics.Instrumental) return lyrics;
+            }
+        }
+        return Lyrics.Empty;
+    }
+    private async Task<Lyrics> FindYandex(MediaTrack track, CancellationToken token)
+    {
+        try
+        {
+            string primaryArtist = Regex.Split(track.Artist, @"\s*[/、,，&;；]\s*").FirstOrDefault(a => a.Length > 0) ?? track.Artist;
+            string cleanTitle = Regex.Replace(track.Title, @"\s*[\(\[][^()\[\]]*(feat|ft|with)[^()\[\]]*[\)\]]", "", RegexOptions.IgnoreCase).Trim();
+            string searchUrl = $"https://api.music.yandex.net/search?text={Uri.EscapeDataString(cleanTitle + " " + primaryArtist)}&type=track&page=0";
+            var root = await Get(searchUrl, token);
+            if (root is not { ValueKind: JsonValueKind.Object } obj || !obj.TryGetProperty("result", out var res) || !res.TryGetProperty("tracks", out var trk) || !trk.TryGetProperty("results", out var list) || list.ValueKind != JsonValueKind.Array)
+                return Lyrics.Empty;
+
+            foreach (var item in list.EnumerateArray())
+            {
+                string title = Str(item, "title");
+                var artistsList = item.TryGetProperty("artists", out var arts) && arts.ValueKind == JsonValueKind.Array
+                    ? string.Join(", ", arts.EnumerateArray().Select(a => Str(a, "name"))) : "";
+                double durationSec = Num(item, "durationMs") / 1000.0;
+                if (!Matches(track, title, artistsList, durationSec)) continue;
+
+                if (!item.TryGetProperty("id", out var idProp)) continue;
+                string trackId = idProp.ToString();
+                var supplement = await Get($"https://api.music.yandex.net/tracks/{trackId}/supplement", token);
+                if (supplement is not { ValueKind: JsonValueKind.Object } sup || !sup.TryGetProperty("result", out var supRes)) continue;
+                if (!supRes.TryGetProperty("lyrics", out var lyr) || lyr.ValueKind != JsonValueKind.Object) continue;
+
+                string fullLyrics = Str(lyr, "fullLyrics");
+                if (string.IsNullOrWhiteSpace(fullLyrics)) fullLyrics = Str(lyr, "lyrics");
+                if (!string.IsNullOrWhiteSpace(fullLyrics))
+                {
+                    return Lyrics.Parse(null, fullLyrics, track.Duration.TotalSeconds, "Яндекс Музыка");
+                }
+            }
+        }
+        catch { }
         return Lyrics.Empty;
     }
     private async Task<Lyrics> FindNetease(MediaTrack track, CancellationToken token)
