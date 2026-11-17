@@ -505,16 +505,16 @@ public sealed class DeckSettings
     public List<string> ClockGradient { get; set; } = [.. ClockColors.Sunset];
     public bool Clock24Hour { get; set; } = true;
     public bool ClockSeconds { get; set; }
-    public CompactMusicText MusicText { get; set; }
+    public CompactMusicText MusicText { get; set; } = CompactMusicText.Title;
     public bool MusicTrackNotice { get; set; } = true;
     // A song taken as instrumental (Lyrics.Instrumental) shows its title in the collapsed lyric's place instead of "♪".
-    public bool MusicInstrumentalTitle { get; set; }
+    public bool MusicInstrumentalTitle { get; set; } = true;
     // With auto width (CompactAutoWidth), the collapsed middle text's room follows the length of what it shows, within
     // CompactMusicLayout.FollowSlot's limits: MusicLyricAutoWidth while the middle text is the lyric (the notch or capsule then
     // changes width from line to line), MusicTitleAutoWidth while it is the title (from song to song). The two are separate
     // choices; only the one for the chosen middle text applies. Off, the text keeps a fixed slot (TextSlot).
-    public bool MusicLyricAutoWidth { get; set; }
-    public bool MusicTitleAutoWidth { get; set; }
+    public bool MusicLyricAutoWidth { get; set; } = true;
+    public bool MusicTitleAutoWidth { get; set; } = true;
     // The surface narrows without what is hidden; a number not listed shows everything.
     public PausedMusicHide MusicPausedHide { get => _musicPausedHide; set => _musicPausedHide = Enum.IsDefined(value) ? value : PausedMusicHide.None; }
     // The album cover at the left of the collapsed row and on the music page; some players give no cover, only a placeholder.
@@ -584,12 +584,14 @@ public sealed class DeckSettings
     // The collapsed panel opens on a click instead of on hover; OpenDelay then does not apply.
     public bool ClickToExpand { get; set; }
     public int CloseDelay { get; set; } = 0;
-    public int AnimationDuration { get; set; } = 360;
+    public int AnimationDuration { get; set; } = 220;
     public bool Animations { get; set; } = true;
     // The panel stays above other windows. Off, it is an ordinary window that others cover: it comes to the front when it
     // opens, and over the desktop while the desktop is shown; ForceTopmost then does not apply. The window rules still do:
     // Normal leaves it covered, Line puts the indicator above the window that fills the screen, Hide hides it.
     public bool AlwaysOnTop { get; set; } = true;
+    // Always keep island on screen, never collapse into indicator line.
+    public bool AlwaysKeepIsland { get; set; } = true;
     // The panel stays above other always-on-top windows too: the part one covers is shown above it in a window of a higher band
     // (TaskbarMirror), so the panel stays on top without raising itself again and again. Where that window cannot be made, the
     // panel is raised again whenever it is covered.
@@ -597,7 +599,7 @@ public sealed class DeckSettings
     // The panel window can be captured on its own by recording apps (OBS window capture). Off, the window keeps the no-activate
     // style that recording apps cannot capture, and that keeps it out of Alt+Tab.
     public bool WindowCapture { get; set; }
-    public string? CustomSurfaceColor { get; set; }
+    public string? CustomSurfaceColor { get; set; } = "#000000";
     public string? CustomAccentColor { get; set; }
     public WindowBehavior Maximized { get; set; } = WindowBehavior.Normal;
     public WindowBehavior Borderless { get; set; } = WindowBehavior.Hide;
@@ -872,11 +874,12 @@ public sealed class DeckSettings
                     if (own is { } choice) return choice;
                     break;
                 }
-        return kind switch
+        var res = kind switch
         {
             ScreenContext.Maximized => Maximized, ScreenContext.Borderless => Borderless,
             ScreenContext.Exclusive => Exclusive, ScreenContext.Occupied => Occupied, _ => WindowBehavior.Normal
         };
+        return AlwaysKeepIsland && res == WindowBehavior.Line ? WindowBehavior.Normal : res;
     }
     public DeckSettings Copy()
     {
@@ -1025,10 +1028,10 @@ public sealed class DeckSettings
         LineOffsetX = Offset(LineOffsetX);
         foreach (var kind in Enum.GetValues<HotkeyKind>()) SetHotkey(kind, Hotkey(kind));
         if (QuickSize is { } quick && !Enum.IsDefined(quick)) QuickSize = null;
-        if (!Enum.IsDefined(Maximized)) Maximized = WindowBehavior.Normal;
-        if (!Enum.IsDefined(Borderless)) Borderless = WindowBehavior.Hide;
+        if (!Enum.IsDefined(Maximized) || (AlwaysKeepIsland && Maximized == WindowBehavior.Line)) Maximized = WindowBehavior.Normal;
+        if (!Enum.IsDefined(Borderless) || (AlwaysKeepIsland && Borderless == WindowBehavior.Line)) Borderless = WindowBehavior.Normal;
         if (!Enum.IsDefined(Exclusive)) Exclusive = WindowBehavior.Hide;
-        if (!Enum.IsDefined(Occupied)) Occupied = WindowBehavior.Normal;
+        if (!Enum.IsDefined(Occupied) || (AlwaysKeepIsland && Occupied == WindowBehavior.Line)) Occupied = WindowBehavior.Normal;
         if (!Enum.IsDefined(Display)) Display = DisplayPlacement.Primary;
         // A file saved before MouseWheel had the page switch turned off as MouseWheelPages = false.
         if (MouseWheelPages is false) MouseWheel = MouseWheelAction.None;

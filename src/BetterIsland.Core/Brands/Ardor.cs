@@ -27,16 +27,25 @@ public static class ArdorMice
     public static BatteryRead? Battery(byte[] r)
     {
         if (r == null || r.Length < 7) return null;
-        int offset = (r[0] is 0x08 or 0x09 && r.Length >= 17) ? 1 : 0;
-        if (r[offset] != 0x04) return null;
-        int percentIdx = offset + 5;
-        int chargingIdx = offset + 6;
-        if (percentIdx >= r.Length) return null;
-        int percent = r[percentIdx];
-        if (percent > 100) return null;
-        if (percent == 0) return new(null, Asleep: true);
-        bool charging = chargingIdx < r.Length && r[chargingIdx] == 1;
-        return new(percent, charging);
+        // Case 1: Report ID is at byte 0 (0x08 or 0x09)
+        if (r.Length >= 8 && (r[0] is 0x08 or 0x09))
+        {
+            int percent = r[6];
+            bool charging = r.Length > 7 && (r[7] == 1 || (r[7] & 0x0F) == 1);
+            if (percent > 100) return null;
+            if (percent == 0) return new(null, Asleep: true);
+            return new(percent, charging);
+        }
+        // Case 2: Report ID is stripped by HID driver (byte 0 is command 0x04 or status 0x00)
+        if (r.Length >= 7 && (r[0] is 0x04 or 0x00))
+        {
+            int percent = r[5];
+            bool charging = r.Length > 6 && (r[6] == 1 || (r[6] & 0x0F) == 1);
+            if (percent > 100) return null;
+            if (percent == 0) return new(null, Asleep: true);
+            return new(percent, charging);
+        }
+        return null;
     }
 
     public static BatteryRead? CableBattery(byte[] r)

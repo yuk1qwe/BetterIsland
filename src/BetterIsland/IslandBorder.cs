@@ -176,7 +176,7 @@ public sealed class IslandBorder : Border
 
     private static Brush CreateRim()
     {
-        var brush = new SolidColorBrush(Color.FromArgb(0x12, 0xFF, 0xFF, 0xFF));
+        var brush = new SolidColorBrush(Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF));
         brush.Freeze();
         return brush;
     }

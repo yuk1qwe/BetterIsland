@@ -23,8 +23,13 @@ public partial class MainWindow
     private void InitializeShadow()
     {
         _shadowCache = ShadowHost.CacheMode as BitmapCache;
-        _shadowSettle = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(250) };
-        _shadowSettle.Tick += (_, _) => { _shadowSettle.Stop(); if (ShadowHost.Opacity > 0) ShadowHost.CacheMode = _shadowCache; };
+        _shadowSettle = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(200) };
+        _shadowSettle.Tick += (_, _) =>
+        {
+            _shadowSettle.Stop();
+            IslandShadow.Visibility = Visibility.Visible;
+            if (ShadowHost.Opacity > 0) ShadowHost.CacheMode = _shadowCache;
+        };
         // The host's size follows the island's margin as well (the island sinks into place as the panel closes).
         IslandShadow.SizeChanged += (_, _) => ShadowChanging(); ShadowHost.SizeChanged += (_, _) => ShadowChanging();
         // The color, corners and shoulders the shadow takes from the island; Changed is raised on each frame of a color animation.
@@ -58,7 +63,10 @@ public partial class MainWindow
     private void ShadowChanging()
     {
         if (_shadowSettle is null) return;
-        ShadowHost.CacheMode = null; _shadowSettle.Stop(); _shadowSettle.Start();
+        IslandShadow.Visibility = Visibility.Hidden;
+        ShadowHost.CacheMode = null;
+        _shadowSettle.Stop();
+        _shadowSettle.Start();
     }
 
     // The picture is drawn at the display's scale and reaches past the blur by whole device pixels (ShadowBounds): a picture

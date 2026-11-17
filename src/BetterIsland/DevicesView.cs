@@ -62,6 +62,61 @@ internal sealed class DevicesView : FrameworkElement
         SizeChanged += (_, _) => Place(motion: false);
     }
 
+    protected override void OnMouseRightButtonUp(MouseButtonEventArgs e)
+    {
+        base.OnMouseRightButtonUp(e);
+        var pt = e.GetPosition(this);
+        double now = Eased.Now, scroll = _layout.Form == DevicesForm.List ? _scroll : 0;
+        Card? card = null;
+        for (int i = _cards.Count - 1; i >= 0; i--)
+        {
+            var c = _cards[i];
+            if (c.Leaving || !c.Placed) continue;
+            if (new Rect(c.X.At(now), c.Y.At(now) - scroll, c.Width, c.Height).Contains(pt)) { card = c; break; }
+        }
+
+        var app = Application.Current as App;
+        if (app is null) return;
+        var menu = new System.Windows.Controls.ContextMenu();
+        if (card is not null)
+        {
+            var key = card.Key;
+            var hideItem = new System.Windows.Controls.MenuItem { Header = Loc.T("从展开页隐藏此设备", "Hide from island page") };
+            hideItem.Click += (_, _) =>
+            {
+                var s = app.Settings.Copy();
+                var choice = s.DeviceChoices.FirstOrDefault(ch => ch.Key == key);
+                if (choice is null) { choice = new DeviceChoice { Key = key, Name = card.Device.Name, Kind = card.Device.Kind }; s.DeviceChoices.Add(choice); }
+                choice.Expanded = false;
+                app.UpdateSettings(s);
+            };
+            menu.Items.Add(hideItem);
+
+            var hideCollapsed = new System.Windows.Controls.MenuItem { Header = Loc.T("从收起状态隐藏此设备", "Hide from collapsed notch") };
+            hideCollapsed.Click += (_, _) =>
+            {
+                var s = app.Settings.Copy();
+                var choice = s.DeviceChoices.FirstOrDefault(ch => ch.Key == key);
+                if (choice is null) { choice = new DeviceChoice { Key = key, Name = card.Device.Name, Kind = card.Device.Kind }; s.DeviceChoices.Add(choice); }
+                choice.Collapsed = false;
+                app.UpdateSettings(s);
+            };
+            menu.Items.Add(hideCollapsed);
+            menu.Items.Add(new System.Windows.Controls.Separator());
+        }
+
+        var settingsItem = new System.Windows.Controls.MenuItem { Header = Loc.T("设备设置…", "Device settings…") };
+        settingsItem.Click += (_, _) => app.OpenSettingsPage(12);
+        menu.Items.Add(settingsItem);
+
+        var refreshItem = new System.Windows.Controls.MenuItem { Header = Loc.T("重新扫描设备", "Rescan devices") };
+        refreshItem.Click += (_, _) => app.Devices?.Refresh();
+        menu.Items.Add(refreshItem);
+
+        menu.IsOpen = true;
+        e.Handled = true;
+    }
+
     private IEnumerable<Card> Shown => _cards.Where(card => !card.Leaving);
     private int ShownCount => _cards.Count(card => !card.Leaving);
 

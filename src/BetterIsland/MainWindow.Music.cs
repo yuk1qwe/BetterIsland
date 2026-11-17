@@ -610,6 +610,14 @@ public partial class MainWindow
                 RenderOptions.SetClearTypeHint(text, ClearTypeHint.Enabled);
                 AutomationProperties.SetName(lyrics, Loc.T("歌词", "Lyrics")); middle.Children.Add(lyrics);
             }
+            else if (!hasLyrics && track is not null && !layout.ShowMessage)
+            {
+                string infoText = !string.IsNullOrEmpty(track.Album) ? track.Album : $"♪ {track.Artist}";
+                var infoLine = UI.Fixed(infoText, c.Lyric, c.LyricLine, Look.Tertiary);
+                infoLine.TextAlignment = centered ? TextAlignment.Center : TextAlignment.Left;
+                infoLine.VerticalAlignment = VerticalAlignment.Center;
+                middle.Children.Add(infoLine);
+            }
             if (lyricsArrive) { var fade = Soft.Fade(0, 1, Soft.Move, Soft.Follow); fade.FillBehavior = System.Windows.Media.Animation.FillBehavior.Stop; middle.BeginAnimation(OpacityProperty, fade); }
             if (layout.MiddleHeight >= c.MiddleGap + c.LyricLine)
             {
@@ -628,7 +636,7 @@ public partial class MainWindow
             foreach (var time in new[] { _musicElapsed, _musicDuration }) Typography.SetNumeralAlignment(time, FontNumeralAlignment.Tabular);
             body.Children.Add(times);
             _musicSeek = new MusicSeekSlider { Style = (Style)FindResource("MusicSeek"), RestHeight = c.Bar, HoverHeight = c.BarHover, BarHeight = c.Bar,
-                Accent = ((SolidColorBrush)_musicAccent).Color, DurationSeconds = track.Duration.TotalSeconds, Height = c.SeekRow, AnimationsEnabled = animate, IsEnabled = track.CanSeek && track.HasTimeline,
+                Accent = ((SolidColorBrush)_musicAccent).Color, DurationSeconds = track?.Duration.TotalSeconds ?? 0, Height = c.SeekRow, AnimationsEnabled = animate, IsEnabled = track?.CanSeek == true && track?.HasTimeline == true,
                 VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, layout.ProgressY, 0, 0) };
             AutomationProperties.SetName(_musicSeek, Loc.T("播放进度", "Playback position"));
             // Slider handles move-to-point before instance handlers; observe that handled event too.
@@ -722,7 +730,7 @@ public partial class MainWindow
                 c.Mode, layout.TripletX + layout.TripletWidth + (layout.TripletX - layout.ModeX - c.Mode), track.CanRepeat,
                 () => RunMediaCommand(track, MediaCommand.Repeat), true, track.Repeat == MediaRepeat.Track, On(track.Repeat != MediaRepeat.None));
         }
-        else if (modes.Count > 0)
+        else if (modes.Count > 0 && track is not null)
         {
             var mode = MusicPlaybackModes.Current(track);
             Add(MediaCommand.Repeat, Loc.T("播放模式 · ", "Playback mode · ") + MusicPlaybackModes.Label(mode), mode == MusicPlaybackMode.Shuffle ? "shuffle" : mode == MusicPlaybackMode.Order ? "sequential" : "repeat",
@@ -769,6 +777,7 @@ public partial class MainWindow
         else
         {
             if (_musicSmtcHint is not null) _musicSmtcHint.Visibility = Visibility.Collapsed;
+            if (track is null) return;
             double gx = layout.TripletX;
             Add(MediaCommand.Previous, Loc.T("上一首", "Previous"), "previous", c.Skip, gx, track.CanPrevious, () => RunMediaCommand(track, MediaCommand.Previous)); gx += c.Skip + layout.ControlGap;
             Add(MediaCommand.PlayPause, track.State == MediaState.Playing ? Loc.T("暂停", "Pause") : Loc.T("播放", "Play"), track.State == MediaState.Playing ? "pause" : "play", c.Play, gx, track.CanToggle, () => RunMediaCommand(track, MediaCommand.PlayPause)); gx += c.Play + layout.ControlGap;

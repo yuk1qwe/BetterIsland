@@ -443,6 +443,12 @@ internal sealed class HidBatteries(Dispatcher dispatcher, Action<DeviceSource, I
             if (Headsets.Find(info.Vendor, info.Product) is { } headset) { if (Matches(info, Headsets.Channel(headset))) Try(() => ReadHeadset(headset, info, claimed, infos)); continue; }
             // AJAZZ shares Inphic's vendor ids: it does not stand aside for Inphic's software. A receiver whose mouse has answered on
             // one collection is not asked again on its others (G-Wolves' receiver has more than one that would take the request).
+            if (info.Vendor == ArdorMice.Vendor && (info.Product == ArdorMice.Receiver || info.Product == ArdorMice.Cable))
+            {
+                if (!answered.Contains(info.Group))
+                    AskBrand(info, () => ReadArdor(info, claimed, infos));
+                continue;
+            }
             if (info.Dongle is { } dongle)
             {
                 if (!answered.Contains(info.Group) && (Dongles.IsAjazz(info.Vendor, info.Product) || !Aside(info.Vendor)))
@@ -619,8 +625,10 @@ internal sealed class HidBatteries(Dispatcher dispatcher, Action<DeviceSource, I
             var remembered = before is null ? DeviceReadSwitches.Remembered(hardware) : null;
             string key = before?.Key ?? remembered?.Key ?? Key("hid", info);
             var kind = before?.Kind ?? remembered?.Kind ?? (info.Vendor == Dongles.MchoseVendor ? Dongles.MchoseKind(info.Product, info.ProductName)
+                : info.Vendor == ArdorMice.Vendor ? DeviceKind.Mouse
                 : Devices.Named(info.ProductName) ?? group.Select(each => each.Brand?.Family.Kind(Shape(each))).FirstOrDefault(each => each is not null)) ?? DeviceKind.Other;
-            string name = before?.Name ?? remembered?.Name ?? NameOf(info, hardware);
+            string? brandName = info.Vendor == ArdorMice.Vendor ? "ARDOR GAMING Essence" : group.Select(each => each.Brand?.Family.DisplayName(Shape(each))).FirstOrDefault(each => !string.IsNullOrEmpty(each));
+            string name = before?.Name ?? remembered?.Name ?? brandName ?? NameOf(info, hardware);
             if (!found.TryGetValue(DeviceSource.Hid, out var list)) found[DeviceSource.Hid] = list = [];
             list.Add(new DeviceBattery(key, name, kind, DeviceSource.Hid, null) { Hardware = hardware });
             read.Add(hardware);
@@ -1223,6 +1231,62 @@ internal sealed class HidBatteries(Dispatcher dispatcher, Action<DeviceSource, I
         claimed.Add(info.Path);
         string name = parsed.DeviceId.Length > 0 ? parsed.DeviceId : NameOf(info, "AJAZZ");
         return [Mouse("ajazz", info, "AJAZZ", battery, preferredName: name)];
+    }
+
+    // ARDOR GAMING Essence mouse (Areson / Compx JM03, VID 0x25A7, PID 0xFA7C / 0xFA7B):
+    // Output report 0x08 command 0x04 with 0x55 checksum; reply on 0x09 or 0x08.
+    private static IEnumerable<DeviceBattery> ReadArdor(HidInfo info, HashSet<string> claimed, List<HidInfo> allInfos)
+    {
+        string group = info.Group;
+        var groupInfos = allInfos.Where(other => other.Vendor == info.Vendor && other.Product == info.Product && other.Group == group).ToList();
+        var request = ArdorMice.Request();
+        BatteryRead? result = null;
+
+        foreach (var writerInfo in groupInfos.Where(i => i.OutputLength >= 17 || i.FeatureLength >= 17 || i.UsagePage >= 0xFF00))
+        {
+            try
+            {
+                using var writer = new HidDevice(writerInfo);
+                var readerDevices = new List<HidDevice>();
+                try
+                {
+                    foreach (var readerInfo in groupInfos.Where(i => i.InputLength >= 17 || i.UsagePage >= 0xFF00 || i.Path == writerInfo.Path))
+                    {
+                        try { readerDevices.Add(new HidDevice(readerInfo)); }
+                        catch { }
+                    }
+                    if (readerDevices.Count == 0) readerDevices.Add(new HidDevice(writerInfo));
+
+                    try
+                    {
+                        result = Hid.Transact<object>(readerDevices, () => writer.Write(request, 400), r => ArdorMice.Battery(r) is { } b ? (object)b : null, 400) as BatteryRead?;
+                    }
+                    catch { }
+
+                    if (result is null && writerInfo.FeatureLength >= 17)
+                    {
+                        try
+                        {
+                            result = Hid.Transact<object>(readerDevices, () => writer.SetFeature(request), r => ArdorMice.Battery(r) is { } b ? (object)b : null, 400) as BatteryRead?;
+                        }
+                        catch { }
+                    }
+                }
+                finally
+                {
+                    foreach (var rd in readerDevices) rd.Dispose();
+                }
+
+                if (result is not null) break;
+            }
+            catch { }
+        }
+
+        foreach (var g in groupInfos) claimed.Add(g.Path);
+        bool isCable = info.Product == ArdorMice.Cable;
+        var finalBattery = result ?? new BatteryRead(null, Asleep: true);
+        if (isCable && finalBattery.Percent is not null) finalBattery = finalBattery with { Charging = true };
+        return [Mouse("ardor", info, "ARDOR GAMING Essence", finalBattery, DeviceKind.Mouse, "ARDOR GAMING Essence")];
     }
 
     // The Compx frame on its own 17-byte collection (Dongles.CompxFramed): written, and answered on the input report. A mouse
