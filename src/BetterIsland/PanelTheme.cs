@@ -166,6 +166,7 @@ internal sealed class PanelLook
     // Raised just before another palette becomes current; true when a theme trades its day and night looks.
     public event Action<bool>? Changing;
 
+    private DeckSettings? _settings;
     private string _signature = "";
     private string? _chosen;
     // Every token's text form and the default app colors as drawn, made once per theme: they are read hundreds of times per render.
@@ -204,8 +205,9 @@ internal sealed class PanelLook
         // Under high contrast the system's colors may have changed with the same theme chosen, so its palette is always made anew.
         if (!reload && !high && !HighContrast && ReferenceEquals(theme, ShownTheme) && look == Look && _signature.Length > 0) return false;
         ShownTheme = theme; Look = look; HighContrast = high;
+        _settings = settings;
         var palette = high ? SystemPalette() : PanelThemes.Resolve(theme, look);
-        var signature = Signature(theme, palette);
+        var signature = Signature(theme, palette, settings);
         if (signature == _signature) return false;
         // Panels on screen take a picture of their old look now, before any brush changes (MainWindow.ThemeFade).
         // Moving into or out of dusk fades as slowly as the night does.
@@ -226,11 +228,11 @@ internal sealed class PanelLook
     }
 
     // Everything a palette draws, by value: a file theme is built anew for every reading, so an edit shows as a new signature.
-    private static string Signature(PanelThemeInfo theme, PanelPalette palette)
+    private static string Signature(PanelThemeInfo theme, PanelPalette palette, DeckSettings? settings = null)
     {
         var e = palette.Effects;
         var clock = palette.Clock;
-        return string.Join("|", theme.Id, palette.Look, string.Join(",", palette.Colors.Values), string.Join(",", palette.Apps.Select(pair => pair.Key + pair.Value)),
+        return string.Join("|", theme.Id, palette.Look, settings?.CustomSurfaceColor ?? "", settings?.CustomAccentColor ?? "", string.Join(",", palette.Colors.Values), string.Join(",", palette.Apps.Select(pair => pair.Key + pair.Value)),
             string.Join(",", e.SurfaceGradient), string.Join(",", e.RimGradient), FormattableString.Invariant($"{e.RimWidth}/{e.ShadowBlur}/{e.ShadowDepth}/{e.ShadowOpacity}/{e.Scanlines}/{e.Pixel}/{e.Texture}") + DecorKey(e.Decor),
             $"{clock?.Style}/{clock?.Color}/{clock?.Custom}/{string.Join(",", clock?.Gradient ?? [])}",
             string.Join(",", ClockColors.Swatches.Select(palette.ClockPreset)), string.Join(";", palette.ClockGradients.Select(g => g.Name + g.NameEn + string.Join(",", g.Stops))),
@@ -240,8 +242,22 @@ internal sealed class PanelLook
         $"/{decor.Horizon?.At}/{decor.Horizon?.Sea}/{decor.Horizon?.Line}/{decor.Caustics}/{decor.Palm}");
     private static Dictionary<string, string> Hexes(PanelPalette palette) => palette.Colors.ToDictionary(pair => pair.Key, pair => pair.Value.ToString());
 
-    public string Hex(string key) => _hex[key];
-    public Color ColorOf(string key) => PanelTheme.ToColor(Current[key]);
+    public string Hex(string key)
+    {
+        if (key == "surface" && !string.IsNullOrEmpty(_settings?.CustomSurfaceColor))
+            return _settings.CustomSurfaceColor;
+        if (key == "accent" && !string.IsNullOrEmpty(_settings?.CustomAccentColor))
+            return _settings.CustomAccentColor;
+        return _hex[key];
+    }
+    public Color ColorOf(string key)
+    {
+        if (key == "surface" && !string.IsNullOrEmpty(_settings?.CustomSurfaceColor))
+            return (Color)ColorConverter.ConvertFromString(_settings.CustomSurfaceColor);
+        if (key == "accent" && !string.IsNullOrEmpty(_settings?.CustomAccentColor))
+            return (Color)ColorConverter.ConvertFromString(_settings.CustomAccentColor);
+        return PanelTheme.ToColor(Current[key]);
+    }
     // The panel's text and line colors as code draws them (UI's color properties are the main look's).
     public string Accent => Hex("accent");
     public string Primary => Hex("textPrimary");

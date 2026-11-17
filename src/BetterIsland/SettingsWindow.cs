@@ -164,7 +164,7 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
         if (_scroll is not null) _scroll.Content = null;
         if (_status.Parent is Panel oldStatus) oldStatus.Children.Remove(_status);
         var outer = new Grid { Background = UI.Brush(Surface) };
-        outer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(190) }); outer.ColumnDefinitions.Add(new ColumnDefinition());
+        outer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) }); outer.ColumnDefinitions.Add(new ColumnDefinition());
         var sidebar = new Grid { Background = UI.Brush(Sidebar) };
         sidebar.RowDefinitions.Add(new RowDefinition { Height = new GridLength(100) }); sidebar.RowDefinitions.Add(new RowDefinition());
         sidebar.Children.Add(Brand(24, new Thickness(24, 0, 22, 0)));
@@ -220,9 +220,9 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
     // The product name on one line: a heavier "Better" followed by a light "Island".
     private TextBlock Wordmark(double size)
     {
-        var name = new TextBlock { FontFamily = SettingsFont(UiFontRole.Text), FontSize = size, Foreground = UI.Brush(TextPrimary) };
+        var name = new TextBlock { FontFamily = SettingsFont(UiFontRole.Text), FontSize = size, Foreground = UI.Brush(TextPrimary), TextWrapping = TextWrapping.NoWrap };
         name.Inlines.Add(new Run("Better") { FontWeight = FontWeights.SemiBold });
-        name.Inlines.Add(new Run("Island") { FontWeight = FontWeights.Light, Foreground = UI.Brush(_palette.Dark ? "#C5C5CB" : "#565661") });
+        name.Inlines.Add(new Run("Island") { FontWeight = FontWeights.Light, Foreground = UI.Brush(_palette.Dark ? "#E5E5EB" : "#565661") });
         AutomationProperties.SetName(name, "BetterIsland"); return name;
     }
     private TextBlock TextLine(string text, double size = 13, string color = "#F1F1F4", FontWeight? weight = null)
@@ -465,8 +465,13 @@ public sealed partial class SettingsWindow : Window, IKeepsAppFonts
             followRow = Toggle(Loc.T("字体应用到设置窗口", "Apply font to settings window"), S.SettingsFollowsFont,
                 on => { Change(s => s.SettingsFollowsFont = on); RebuildTheme(); });
         }
+        var surfaceColorBtn = ColorSwatch(Loc.T("面板底色", "Panel surface"), "", S.CustomSurfaceColor ?? "#000000", string.IsNullOrEmpty(S.CustomSurfaceColor), val => { Change(s => s.CustomSurfaceColor = val); ShowPage(0); });
+        var accentColorBtn = ColorSwatch(Loc.T("强调色", "Accent"), "", S.CustomAccentColor ?? "#0A84FF", string.IsNullOrEmpty(S.CustomAccentColor), val => { Change(s => s.CustomAccentColor = val); ShowPage(0); });
+        var surfaceRow = Row(Loc.T("面板底色", "Panel surface"), surfaceColorBtn, help: () => Loc.T("选择面板与收起形态的底色（点击选择任意颜色，如 #000000 纯黑）", "Choose island surface color (click for color picker, e.g. #000000 OLED pure black)"));
+        var accentRow = Row(Loc.T("强调色", "Accent"), accentColorBtn, help: () => Loc.T("选择强调色（键盘焦点、进度条高亮等）", "Choose accent color (keyboard focus, highlights, etc.)"));
+
         Group(Row(Loc.T("主题", "Theme"),SegmentBorder(themes)),Row(Loc.T("语言", "Language"),language),Row(Loc.T("缩放", "Scale"),scale),transparency,
-            fontRow,followRow,Row(Loc.T("字体预览", "Font preview"),fontSample));
+            surfaceRow,accentRow,fontRow,followRow,Row(Loc.T("字体预览", "Font preview"),fontSample));
 
         SectionTitle(Loc.T("模块", "Modules"), help: () => Loc.T("开启或关闭各个功能模块，关闭的模块将不会在界面中显示或消耗系统资源。", "Enable or disable feature modules. Disabled modules will not be shown or consume resources."));
         Group(

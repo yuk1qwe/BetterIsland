@@ -26,15 +26,17 @@ public static class ArdorMice
 
     public static BatteryRead? Battery(byte[] r)
     {
-        if (r.Length < 17 || r[0] is not (0x08 or 0x09) || r[1] != 0x04 || r[6] > 100) return null;
-        int sum = 0;
-        for (int i = 0; i < 17; i++) sum += r[i];
-        if ((byte)sum != 0x55) return null;
-        bool echo = true;
-        for (int i = 2; i < 16; i++) echo &= r[i] == 0;
-        if (echo) return null;
-        if (r[6] == 0) return new(null, Asleep: true);
-        return new(r[6], r[7] == 1);
+        if (r == null || r.Length < 7) return null;
+        int offset = (r[0] is 0x08 or 0x09 && r.Length >= 17) ? 1 : 0;
+        if (r[offset] != 0x04) return null;
+        int percentIdx = offset + 5;
+        int chargingIdx = offset + 6;
+        if (percentIdx >= r.Length) return null;
+        int percent = r[percentIdx];
+        if (percent > 100) return null;
+        if (percent == 0) return new(null, Asleep: true);
+        bool charging = chargingIdx < r.Length && r[chargingIdx] == 1;
+        return new(percent, charging);
     }
 
     public static BatteryRead? CableBattery(byte[] r)
@@ -45,24 +47,29 @@ public static class ArdorMice
 
     public static bool Takes(HidShape shape) =>
         shape.Vendor == Vendor && Products.Contains(shape.Product)
-        && (shape.Interface is 1 or -1)
         && MouseShapes.VendorPage(shape);
 
     public static readonly BrandWay ReceiverWay = new("ardor.battery", WayTransport.Output, Request(), Battery)
     {
-        TimeoutMs = 500,
-        Attempts = 1
+        TimeoutMs = 600,
+        Attempts = 2
     };
 
-    public static readonly BrandWay CableWay = new("ardor.battery", WayTransport.Output, Request(), CableBattery)
+    public static readonly BrandWay ReceiverFeatureWay = new("ardor.battery.feature", WayTransport.Feature, Request(), Battery)
     {
-        TimeoutMs = 500,
-        Attempts = 1
+        TimeoutMs = 600,
+        Attempts = 2
+    };
+
+    public static readonly BrandWay CableWay = new("ardor.battery.cable", WayTransport.Output, Request(), CableBattery)
+    {
+        TimeoutMs = 600,
+        Attempts = 2
     };
 
     public static IEnumerable<BrandFamily> Families =>
     [
-        new("ARDOR GAMING", Takes, shape => [shape.Product == Cable ? CableWay : ReceiverWay])
+        new("ARDOR GAMING", Takes, shape => shape.Product == Cable ? [CableWay] : [ReceiverWay, ReceiverFeatureWay])
         {
             Kind = _ => DeviceKind.Mouse,
             Prefix = "ardor",

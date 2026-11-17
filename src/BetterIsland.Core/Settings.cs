@@ -597,7 +597,9 @@ public sealed class DeckSettings
     // The panel window can be captured on its own by recording apps (OBS window capture). Off, the window keeps the no-activate
     // style that recording apps cannot capture, and that keeps it out of Alt+Tab.
     public bool WindowCapture { get; set; }
-    public WindowBehavior Maximized { get; set; } = WindowBehavior.Line;
+    public string? CustomSurfaceColor { get; set; }
+    public string? CustomAccentColor { get; set; }
+    public WindowBehavior Maximized { get; set; } = WindowBehavior.Normal;
     public WindowBehavior Borderless { get; set; } = WindowBehavior.Hide;
     public WindowBehavior Exclusive { get; set; } = WindowBehavior.Hide;
     // A window that overlaps the place of the collapsed panel in its own style, such as one dragged under it. Maximized and
@@ -993,6 +995,8 @@ public sealed class DeckSettings
         CloseDelay = Math.Clamp(CloseDelay, 0, 2000);
         AnimationDuration = Math.Clamp(AnimationDuration, 100, 1000);
         if (!Enum.IsDefined(Theme)) Theme = SettingsTheme.System;
+        CustomSurfaceColor = AppPresets.NormalizeColor(CustomSurfaceColor) is { Length: > 0 } sc ? sc : null;
+        CustomAccentColor = AppPresets.NormalizeColor(CustomAccentColor) is { Length: > 0 } ac ? ac : null;
         PanelTheme = PanelThemes.NormalizeId(PanelTheme) is { Length: > 0 } panelTheme ? panelTheme : PanelThemes.Dark;
         // "system" or two valid, different times; anything else keeps the theme's own choice.
         ThemeDaylight = PanelThemes.NormalizeDaylightSetting(ThemeDaylight);
@@ -1021,7 +1025,7 @@ public sealed class DeckSettings
         LineOffsetX = Offset(LineOffsetX);
         foreach (var kind in Enum.GetValues<HotkeyKind>()) SetHotkey(kind, Hotkey(kind));
         if (QuickSize is { } quick && !Enum.IsDefined(quick)) QuickSize = null;
-        if (!Enum.IsDefined(Maximized)) Maximized = WindowBehavior.Line;
+        if (!Enum.IsDefined(Maximized)) Maximized = WindowBehavior.Normal;
         if (!Enum.IsDefined(Borderless)) Borderless = WindowBehavior.Hide;
         if (!Enum.IsDefined(Exclusive)) Exclusive = WindowBehavior.Hide;
         if (!Enum.IsDefined(Occupied)) Occupied = WindowBehavior.Normal;
