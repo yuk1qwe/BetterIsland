@@ -203,14 +203,21 @@ public sealed partial class LyricsService : IDisposable
             }
             else
             {
-                if (track.SongId.StartsWith("netease:", StringComparison.Ordinal))
-                    lyrics = await FindNeteaseId(track.SongId[8..], track.Duration.TotalSeconds, token);
-                // KuGou's songs ask KuGou first; for the others it is the last provider asked.
-                if (track.IsKugou) lyrics = await FindKugou(track, token);
-                if (lyrics.Lines.Count == 0 && !lyrics.Instrumental) lyrics = await FindYandex(track, token);
-                if (lyrics.Lines.Count == 0 && !lyrics.Instrumental) lyrics = await FindLrclib(track, token);
-                if (lyrics.Lines.Count == 0 && !lyrics.Instrumental) lyrics = await FindNetease(track, token);
-                if (lyrics.Lines.Count == 0 && !lyrics.Instrumental && !track.IsKugou) lyrics = await FindKugou(track, token);
+            // 1. Prioritize millisecond-accurate synchronized lyrics first (LRCLIB, NetEase)
+            var lrclib = await FindLrclib(track, token);
+            if (lrclib.Synced && lrclib.Lines.Count > 0) return lrclib;
+
+            var netease = await FindNetease(track, token);
+            if (netease.Synced && netease.Lines.Count > 0) return netease;
+
+            // 2. Fallback to providers with plain / unsynced lyrics or instrumental
+            if (lrclib.Instrumental) return lrclib;
+            if (netease.Instrumental) return netease;
+
+            lyrics = await FindYandex(track, token);
+            if (lyrics.Lines.Count == 0 && !lyrics.Instrumental) lyrics = lrclib;
+            if (lyrics.Lines.Count == 0 && !lyrics.Instrumental) lyrics = netease;
+            if (lyrics.Lines.Count == 0 && !lyrics.Instrumental && !track.IsKugou) lyrics = await FindKugou(track, token);
             }
             token.ThrowIfCancellationRequested();
             // An empty result can be a temporary provider failure. Do not keep it for the entire app session.
@@ -225,6 +232,12 @@ public sealed partial class LyricsService : IDisposable
     }
     private async Task<JsonElement?> Get(string url, CancellationToken token)
     {
+        if (url.Contains("lrclib.net", StringComparison.OrdinalIgnoreCase))
+        {
+            var curl = await FetchViaCurlAsync(url, token);
+            if (curl is not null) return curl;
+        }
+
         for (int attempt = 0; attempt < 2; attempt++)
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -261,6 +274,11 @@ public sealed partial class LyricsService : IDisposable
             }
             catch (Exception ex) when (ex is HttpRequestException or JsonException || ex is OperationCanceledException && !token.IsCancellationRequested)
             {
+                if (url.Contains("lrclib.net", StringComparison.OrdinalIgnoreCase))
+                {
+                    var curl = await FetchViaCurlAsync(url, token);
+                    if (curl is not null) return curl;
+                }
                 bool temporary = ex is JsonException or OperationCanceledException || ex is HttpRequestException http &&
                     (http.StatusCode is null or HttpStatusCode.RequestTimeout || (int)http.StatusCode >= 500);
                 if (attempt != 0 || !temporary) return null;
@@ -268,6 +286,33 @@ public sealed partial class LyricsService : IDisposable
             }
         }
         return null;
+    }
+
+    private static async Task<JsonElement?> FetchViaCurlAsync(string url, CancellationToken token)
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "curl.exe",
+                Arguments = $"-s --max-time 4 \"{url}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            using var proc = System.Diagnostics.Process.Start(psi);
+            if (proc is null) return null;
+            var output = await proc.StandardOutput.ReadToEndAsync(token);
+            await proc.WaitForExitAsync(token);
+            if (string.IsNullOrWhiteSpace(output)) return null;
+            using var doc = JsonDocument.Parse(output);
+            return doc.RootElement.Clone();
+        }
+        catch
+        {
+            return null;
+        }
     }
     // The reply, or null once it is larger than MaxResponseBytes, whatever its declared length said.
     private static async Task<byte[]?> ReadLimitedAsync(Stream stream, CancellationToken token)
