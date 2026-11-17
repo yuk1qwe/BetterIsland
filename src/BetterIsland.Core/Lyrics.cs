@@ -207,8 +207,8 @@ public sealed partial class LyricsService : IDisposable
                     lyrics = await FindNeteaseId(track.SongId[8..], track.Duration.TotalSeconds, token);
                 // KuGou's songs ask KuGou first; for the others it is the last provider asked.
                 if (track.IsKugou) lyrics = await FindKugou(track, token);
-                if (lyrics.Lines.Count == 0 && !lyrics.Instrumental) lyrics = await FindLrclib(track, token);
                 if (lyrics.Lines.Count == 0 && !lyrics.Instrumental) lyrics = await FindYandex(track, token);
+                if (lyrics.Lines.Count == 0 && !lyrics.Instrumental) lyrics = await FindLrclib(track, token);
                 if (lyrics.Lines.Count == 0 && !lyrics.Instrumental) lyrics = await FindNetease(track, token);
                 if (lyrics.Lines.Count == 0 && !lyrics.Instrumental && !track.IsKugou) lyrics = await FindKugou(track, token);
             }
@@ -402,15 +402,19 @@ public sealed partial class LyricsService : IDisposable
     }
     private async Task<Lyrics> FindNetease(MediaTrack track, CancellationToken token)
     {
-        var search = await Get("https://music.163.com/api/search/get/web?type=1&limit=8&s=" + Uri.EscapeDataString(track.Title + " " + track.Artist), token);
-        if (search is not { ValueKind: JsonValueKind.Object } root || !root.TryGetProperty("result", out var result) || !result.TryGetProperty("songs", out var songs) || songs.ValueKind != JsonValueKind.Array) return Lyrics.Empty;
-        foreach (var song in songs.EnumerateArray())
+        try
         {
-            string artist = song.TryGetProperty("artists", out var artists) && artists.ValueKind == JsonValueKind.Array ? string.Join(" / ", artists.EnumerateArray().Select(a => Str(a, "name"))) : "";
-            if (!Matches(track, Str(song, "name"), artist, Num(song, "duration") / 1000) || !song.TryGetProperty("id", out var id)) continue;
-            var lyrics = await FindNeteaseId(id.ToString(), track.Duration.TotalSeconds, token);
-            if (lyrics.Lines.Count > 0 || lyrics.Instrumental) return lyrics;
+            var search = await Get("https://music.163.com/api/search/get/web?type=1&limit=8&s=" + Uri.EscapeDataString(track.Title + " " + track.Artist), token);
+            if (search is not { ValueKind: JsonValueKind.Object } root || !root.TryGetProperty("result", out var result) || result.ValueKind != JsonValueKind.Object || !result.TryGetProperty("songs", out var songs) || songs.ValueKind != JsonValueKind.Array) return Lyrics.Empty;
+            foreach (var song in songs.EnumerateArray())
+            {
+                string artist = song.TryGetProperty("artists", out var artists) && artists.ValueKind == JsonValueKind.Array ? string.Join(" / ", artists.EnumerateArray().Select(a => Str(a, "name"))) : "";
+                if (!Matches(track, Str(song, "name"), artist, Num(song, "duration") / 1000) || !song.TryGetProperty("id", out var id)) continue;
+                var lyrics = await FindNeteaseId(id.ToString(), track.Duration.TotalSeconds, token);
+                if (lyrics.Lines.Count > 0 || lyrics.Instrumental) return lyrics;
+            }
         }
+        catch { }
         return Lyrics.Empty;
     }
     public void Dispose()
